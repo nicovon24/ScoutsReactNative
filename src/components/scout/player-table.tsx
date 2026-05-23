@@ -1,0 +1,181 @@
+import { View, Text, Pressable, FlatList, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import type { EnrichedPlayer } from '@/hooks/queries/use-league';
+import type { AggregatedStats } from '@/lib/bzzoiro/types';
+import { PositionBadge } from './position-badge';
+import { ratingColor } from '@/lib/player-utils';
+import type { SortKey, SortDir } from './player-filters';
+
+interface Column {
+  key: SortKey | 'player' | 'pos' | 'age' | 'club';
+  label: string;
+  width: number;
+  sortable: boolean;
+  align?: 'left' | 'right' | 'center';
+}
+
+const COLUMNS: Column[] = [
+  { key: 'player',  label: 'Jugador', width: 180, sortable: false, align: 'left' },
+  { key: 'pos',     label: 'Pos',     width: 52,  sortable: false, align: 'center' },
+  { key: 'age',     label: 'Edad',    width: 52,  sortable: false, align: 'center' },
+  { key: 'club',    label: 'Club',    width: 110, sortable: false, align: 'left' },
+  { key: 'goals',   label: 'Goles',   width: 62,  sortable: true,  align: 'right' },
+  { key: 'assists', label: 'Asist',   width: 62,  sortable: true,  align: 'right' },
+  { key: 'xG',      label: 'xG',      width: 62,  sortable: true,  align: 'right' },
+  { key: 'rating',  label: 'Rating',  width: 68,  sortable: true,  align: 'right' },
+];
+
+function calcAge(dob: string | null): string {
+  if (!dob) return '—';
+  return `${Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25))}`;
+}
+
+interface HeaderCellProps {
+  col: Column;
+  sortBy: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}
+
+function HeaderCell({ col, sortBy, sortDir, onSort }: HeaderCellProps) {
+  const active = col.sortable && (col.key as SortKey) === sortBy;
+  const arrow = active ? (sortDir === 'desc' ? ' ↓' : ' ↑') : '';
+  const justifyContent =
+    col.align === 'right' ? 'flex-end' : col.align === 'center' ? 'center' : 'flex-start';
+
+  return (
+    <Pressable
+      style={{ width: col.width, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 10, justifyContent }}
+      onPress={col.sortable ? () => onSort(col.key as SortKey) : undefined}
+      disabled={!col.sortable}
+    >
+      <Text style={{ fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, color: active ? '#64ffda' : '#717171' }}>
+        {col.label}{arrow}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface RowProps {
+  player: EnrichedPlayer;
+  index: number;
+  stats?: AggregatedStats;
+}
+
+function TableRow({ player, index, stats }: RowProps) {
+  const router = useRouter();
+  const even = index % 2 === 0;
+  const rating = stats?.avgRating;
+  const color = rating ? ratingColor(rating) : undefined;
+
+  return (
+    <Pressable
+      onPress={() => router.push(`/player/${player.id}`)}
+      style={{
+        flexDirection: 'row', alignItems: 'center',
+        borderBottomWidth: 1, borderBottomColor: '#2C2C2C',
+        backgroundColor: even ? '#161616' : '#1C1C1C',
+      }}
+    >
+      {/* Jugador */}
+      <View style={{ width: COLUMNS[0].width, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 8 }}>
+        <Image
+          source={{ uri: `https://sports.bzzoiro.com/img/player/${player.id}/` }}
+          style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: '#222' }}
+          contentFit="cover"
+        />
+        <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+          {player.name}
+        </Text>
+      </View>
+
+      {/* Posicion */}
+      <View style={{ width: COLUMNS[1].width, alignItems: 'center', paddingHorizontal: 8 }}>
+        <PositionBadge position={player.position} size="sm" />
+      </View>
+
+      {/* Edad */}
+      <View style={{ width: COLUMNS[2].width, alignItems: 'center', paddingHorizontal: 8 }}>
+        <Text style={{ color: '#B8B8B8', fontSize: 12 }}>{calcAge(player.date_of_birth)}</Text>
+      </View>
+
+      {/* Club */}
+      <View style={{ width: COLUMNS[3].width, paddingHorizontal: 8 }}>
+        <Text style={{ color: '#B8B8B8', fontSize: 12 }} numberOfLines={1}>{player.team_name}</Text>
+      </View>
+
+      {/* Goles */}
+      <View style={{ width: COLUMNS[4].width, alignItems: 'flex-end', paddingHorizontal: 8 }}>
+        <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600' }}>{stats?.goals ?? '—'}</Text>
+      </View>
+
+      {/* Asist */}
+      <View style={{ width: COLUMNS[5].width, alignItems: 'flex-end', paddingHorizontal: 8 }}>
+        <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600' }}>{stats?.assists ?? '—'}</Text>
+      </View>
+
+      {/* xG */}
+      <View style={{ width: COLUMNS[6].width, alignItems: 'flex-end', paddingHorizontal: 8 }}>
+        <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600' }}>{stats?.xG ?? '—'}</Text>
+      </View>
+
+      {/* Rating */}
+      <View style={{ width: COLUMNS[7].width, alignItems: 'flex-end', paddingHorizontal: 12 }}>
+        <Text style={{ fontSize: 12, fontWeight: '800', color: color ?? '#717171' }}>
+          {rating ? rating.toFixed(1) : '—'}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
+interface PlayerTableProps {
+  players: EnrichedPlayer[];
+  sortBy: SortKey;
+  sortDir: SortDir;
+  onSortChange: (key: SortKey) => void;
+  onEndReached?: () => void;
+  hasMore?: boolean;
+}
+
+export function PlayerTable({ players, sortBy, sortDir, onSortChange, onEndReached, hasMore }: PlayerTableProps) {
+  const queryClient = useQueryClient();
+  const totalWidth = COLUMNS.reduce((s, c) => s + c.width, 0);
+
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ flexGrow: 1 }}>
+      <View style={{ width: totalWidth, flex: 1 }}>
+        {/* Sticky header */}
+        <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#3C3C3C', backgroundColor: '#131313' }}>
+          {COLUMNS.map((col) => (
+            <HeaderCell key={col.key} col={col} sortBy={sortBy} sortDir={sortDir} onSort={onSortChange} />
+          ))}
+        </View>
+
+        {/* Rows */}
+        <FlatList
+          data={players}
+          keyExtractor={(item) => String(item.id)}
+          style={{ flex: 1 }}
+          renderItem={({ item, index }) => {
+            const statsData = queryClient.getQueryData<{ aggregated: AggregatedStats }>(['player-stats', item.id]);
+            return <TableRow player={item} index={index} stats={statsData?.aggregated} />;
+          }}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.3}
+          showsVerticalScrollIndicator
+          contentContainerStyle={{ paddingBottom: 80 }}
+          ListFooterComponent={
+            hasMore ? (
+              <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                <Text style={{ color: '#717171', fontSize: 12 }}>Cargando más...</Text>
+              </View>
+            ) : null
+          }
+        />
+      </View>
+    </ScrollView>
+  );
+}
