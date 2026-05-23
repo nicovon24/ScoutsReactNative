@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { View, Text, Pressable, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { ArrowLeftRight, CheckCircle } from 'lucide-react-native';
 import type { EnrichedPlayer } from '@/hooks/queries/use-league';
 import { usePlayerStats, usePlayerDetail } from '@/hooks/queries/use-player-detail';
 import { getAge, formatValue, ratingColor } from '@/lib/player-utils';
+import { useCompareStore } from '@/store/compare-store';
 import { PositionBadge } from './position-badge';
 import { NationalityFlag } from './nationality-flag';
 import { StatsByPosition } from './stats-by-position';
@@ -21,6 +23,10 @@ function FullCard({ player, hovered, compact }: { player: EnrichedPlayer; hovere
   const color = rating > 0 ? ratingColor(rating) : '#3f3f46';
   const photoUrl = `https://sports.bzzoiro.com/img/player/${player.id}/`;
   const teamBadgeUrl = `https://sports.bzzoiro.com/img/team/${player.team_id}/`;
+
+  const { addToCompare, removeFromCompare, isInCompare, slots } = useCompareStore();
+  const inCompare = isInCompare(player.id);
+  const compareFull = slots.length >= 2 && !inCompare;
 
   // Size tokens — slightly smaller in compact (multi-column desktop grid)
   const t = compact
@@ -89,17 +95,47 @@ function FullCard({ player, hovered, compact }: { player: EnrichedPlayer; hovere
         />
       )}
 
-      {/* ── Top bar: position · flag | valor ── */}
+      {/* ── Top bar: position · flag | compare + valor ── */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: t.pad, paddingTop: t.padTop, paddingBottom: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <PositionBadge position={player.position} size={compact ? 'sm' : 'md'} />
           <NationalityFlag nationality={player.nationality} width={t.flagW} radius={5} />
         </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={{ color: '#717171', fontSize: t.valueLabel, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>Valor</Text>
-          <Text style={{ color: '#F2F2F2', fontWeight: '900', fontSize: t.valueSize, marginTop: 2 }}>
-            {formatValue(detail?.market_value_eur)}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+          {/* Compare toggle */}
+          <Pressable
+            onPress={() => {
+              if (inCompare) {
+                removeFromCompare(player.id);
+              } else if (!compareFull) {
+                addToCompare({ ...detail, id: player.id, name: player.name, position: player.position, nationality: player.nationality, current_team_id: player.team_id, team_name: player.team_name } as never);
+              }
+            }}
+            style={({ pressed }) => ({
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: inCompare ? 'rgba(100,255,218,0.45)' : '#3C3C3C',
+              backgroundColor: inCompare ? 'rgba(100,255,218,0.08)' : pressed ? 'rgba(255,255,255,0.05)' : 'transparent',
+              opacity: compareFull ? 0.35 : 1,
+            })}
+            accessibilityLabel={inCompare ? 'Quitar de comparación' : 'Agregar a comparación'}
+          >
+            {inCompare
+              ? <CheckCircle size={14} color="#64ffda" />
+              : <ArrowLeftRight size={14} color="#B8B8B8" />
+            }
+          </Pressable>
+
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{ color: '#717171', fontSize: t.valueLabel, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' }}>Valor</Text>
+            <Text style={{ color: '#F2F2F2', fontWeight: '900', fontSize: t.valueSize, marginTop: 2 }}>
+              {formatValue(detail?.market_value_eur)}
+            </Text>
+          </View>
         </View>
       </View>
 

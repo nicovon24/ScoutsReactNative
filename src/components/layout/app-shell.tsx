@@ -2,6 +2,7 @@ import { Slot } from 'expo-router';
 import { View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CompareBar } from '@/components/scout/compare-bar';
 import { Sidebar } from './sidebar';
 import { SidebarProvider } from './sidebar-context';
 import { Topbar } from './topbar';
@@ -29,6 +30,9 @@ function ShellContent() {
         {/* Mobile drawer is absolutely positioned overlay */}
         {!isDesktop && <Sidebar />}
       </View>
+
+      {/* Floating compare bar — sits above all content */}
+      <CompareBar />
     </SafeAreaView>
   );
 }

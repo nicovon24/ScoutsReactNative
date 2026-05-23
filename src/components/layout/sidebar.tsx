@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Link, usePathname } from 'expo-router';
 import {
+  BarChart2,
   ChevronLeft,
   Home,
   LogOut,
@@ -30,6 +31,7 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/', icon: Home, label: 'Jugadores' },
+  { href: '/compare', icon: BarChart2, label: 'Comparar' },
 ];
 
 const COLOR_GREEN = '#64ffda';
