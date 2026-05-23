@@ -1,4 +1,7 @@
 export { PlayerCard } from './player-card';
+export { DonutCircle } from './donut-circle';
+export { SkillRadar } from './skill-radar';
+export { RatingEvolution } from './rating-evolution';
 export { PlayerFilters } from './player-filters';
 export { PlayerTable } from './player-table';
 export { ScoutHeader } from './scout-header';

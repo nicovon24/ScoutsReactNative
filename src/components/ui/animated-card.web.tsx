@@ -17,7 +17,7 @@ export function AnimatedCard({ index, children }: AnimatedCardProps) {
         ease: 'easeOut',
         delay: (index % 20) * 0.04,
       }}
-      style={{ display: 'contents' }}
+      style={{ flex: 1, minWidth: 0, width: '100%' }}
     >
       {children}
     </motion.div>

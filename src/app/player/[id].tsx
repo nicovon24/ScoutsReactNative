@@ -1,280 +1,382 @@
-import { View, Text, ScrollView, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
+import { ChevronLeft } from 'lucide-react-native';
 
 import { usePlayerDetail, usePlayerStats } from '@/hooks/queries/use-player-detail';
 import { PositionBadge } from '@/components/scout/position-badge';
+import { NationalityFlag } from '@/components/scout/nationality-flag';
 import { RatingBar } from '@/components/scout/rating-bar';
+import { DonutCircle } from '@/components/scout/donut-circle';
+import { SkillRadar } from '@/components/scout/skill-radar';
+import { RatingEvolution } from '@/components/scout/rating-evolution';
+import {
+  formatMarketValue,
+  formatFoot,
+  getAge,
+  ratingColor,
+  getQuickStats,
+  getKeyStats,
+  getDonutValues,
+  getStatSections,
+  getRadarPoints,
+  getRatingEvolution,
+  getBioRows,
+  type StatSection,
+} from '@/lib/player-detail';
 
-function getAge(dob: string | null): number | null {
-  if (!dob) return null;
-  const diff = Date.now() - new Date(dob).getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
-}
+// ── Design tokens ─────────────────────────────────────────────────────────────
 
-function formatValue(eur: number | null | undefined): string {
-  if (eur == null) return 'N/D';
-  if (eur >= 1_000_000) return `€${(eur / 1_000_000).toFixed(1)}M`;
-  if (eur >= 1_000) return `€${Math.round(eur / 1_000)}K`;
-  return `€${eur}`;
-}
+const C = {
+  bg:       '#0F0F0F',
+  surface:  '#161616',
+  card:     '#1C1C1C',
+  border:   '#2C2C2C',
+  borderH:  '#3C3C3C',
+  primary:  '#F2F2F2',
+  secondary:'#B8B8B8',
+  muted:    '#717171',
+  green:    '#64ffda',
+  gold:     '#E8A838',
+  danger:   '#F04444',
+};
 
-interface StatRowProps {
-  label: string;
-  value: string | number;
-  accent?: boolean;
-}
+// ── Shared primitives ─────────────────────────────────────────────────────────
 
-function StatRow({ label, value, accent }: StatRowProps) {
+function SectionTitle({ title, accent = C.green }: { title: string; accent?: string }) {
   return (
-    <View className="flex-row justify-between items-center py-2.5 border-b border-zinc-800">
-      <Text className="text-zinc-400 text-sm">{label}</Text>
-      <Text className={`text-sm font-semibold ${accent ? 'text-green' : 'text-white'}`}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <Text style={{ color: accent, fontSize: 10, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase' }}>
+        {title}
+      </Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
+    </View>
+  );
+}
+
+function Card({ children, style }: { children: React.ReactNode; style?: object }) {
+  return (
+    <View style={{ backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16, ...style }}>
+      {children}
+    </View>
+  );
+}
+
+function StatRow({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.border }}>
+      <Text style={{ color: C.secondary, fontSize: 13 }}>{label}</Text>
+      <Text style={{ color: accent ? C.green : C.primary, fontSize: 13, fontWeight: '700' }}>
         {value}
       </Text>
     </View>
   );
 }
 
-interface SkillRadarProps {
-  stats: {
-    goals: number;
-    assists: number;
-    xG: number;
-    avgRating: number;
-    tackles: number;
-    interceptions: number;
-  };
-}
-
-function SkillRadar({ stats }: SkillRadarProps) {
-  const size = 180;
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = 70;
-  const numAxes = 5;
-  const labels = ['Goles', 'Asist', 'xG', 'Rating', 'Tackl'];
-  const rawValues = [
-    stats.goals / 20,
-    stats.assists / 15,
-    stats.xG / 20,
-    stats.avgRating / 10,
-    stats.tackles / 100,
-  ].map((v) => Math.min(Math.max(v, 0), 1));
-
-  function axisPoint(idx: number, scale: number) {
-    const angle = (Math.PI * 2 * idx) / numAxes - Math.PI / 2;
-    return {
-      x: cx + r * scale * Math.cos(angle),
-      y: cy + r * scale * Math.sin(angle),
-    };
-  }
-
-  const gridLevels = [0.25, 0.5, 0.75, 1];
-  const dataPoints = rawValues.map((v, i) => axisPoint(i, v));
-  const dataPolygon = dataPoints.map((p) => `${p.x},${p.y}`).join(' ');
-
+function StatSectionCard({ section }: { section: StatSection }) {
   return (
-    <Svg width={size} height={size}>
-      {gridLevels.map((level) => {
-        const pts = Array.from({ length: numAxes }, (_, i) => axisPoint(i, level));
-        const polygon = pts.map((p) => `${p.x},${p.y}`).join(' ');
+    <View style={{ marginBottom: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, marginTop: 4 }}>
+        <Text style={{ color: section.accent, fontSize: 10, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase' }}>
+          {section.title}
+        </Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: C.border }} />
+      </View>
+      {section.rows.map((row, i) => {
+        const rawVal = typeof row.value === 'number' ? row.value : parseFloat(String(row.value));
+        const pct = isNaN(rawVal) ? 0 : Math.min(100, (rawVal / row.max) * 100);
         return (
-          <Polygon
-            key={level}
-            points={polygon}
-            fill="none"
-            stroke="#27272a"
-            strokeWidth={1}
-          />
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: C.border }}>
+            <Text style={{ color: C.secondary, fontSize: 12, flex: 1 }}>{row.label}</Text>
+            <Text style={{ color: C.primary, fontSize: 12, fontWeight: '700', width: 44, textAlign: 'right' }}>
+              {row.value}
+            </Text>
+            <View style={{ width: 80, height: 4, backgroundColor: C.card, borderRadius: 99, overflow: 'hidden' }}>
+              <View style={{ height: '100%', width: `${pct}%`, backgroundColor: section.accent, borderRadius: 99 }} />
+            </View>
+          </View>
         );
       })}
-      {Array.from({ length: numAxes }, (_, i) => {
-        const tip = axisPoint(i, 1);
-        return (
-          <Line
-            key={i}
-            x1={cx}
-            y1={cy}
-            x2={tip.x}
-            y2={tip.y}
-            stroke="#3f3f46"
-            strokeWidth={1}
-          />
-        );
-      })}
-      <Polygon
-        points={dataPolygon}
-        fill="rgba(163,255,18,0.15)"
-        stroke="#64ffda"
-        strokeWidth={2}
-      />
-      {dataPoints.map((p, i) => (
-        <Circle key={i} cx={p.x} cy={p.y} r={3} fill="#64ffda" />
-      ))}
-      {Array.from({ length: numAxes }, (_, i) => {
-        const labelPt = axisPoint(i, 1.22);
-        return (
-          <SvgText
-            key={i}
-            x={labelPt.x}
-            y={labelPt.y}
-            fontSize={9}
-            fill="#a1a1aa"
-            textAnchor="middle"
-            alignmentBaseline="middle"
-          >
-            {labels[i]}
-          </SvgText>
-        );
-      })}
-    </Svg>
+    </View>
   );
 }
+
+// ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const playerId = Number(id);
+  const { width } = useWindowDimensions();
+  const isWide = width >= 900;
 
+  const playerId = Number(id);
   const { data: player, isLoading: loadingPlayer } = usePlayerDetail(playerId);
   const { data: statsData, isLoading: loadingStats } = usePlayerStats(playerId);
 
   const stats = statsData?.aggregated;
+  const raw   = statsData?.raw ?? [];
   const isLoading = loadingPlayer || loadingStats;
   const photoUrl = `https://sports.bzzoiro.com/img/player/${playerId}/`;
+  const teamLogoUrl = player?.current_team_id
+    ? `https://sports.bzzoiro.com/img/team/${player.current_team_id}/`
+    : null;
+
+  // ── Loading / error states ──────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={C.green} />
+      </View>
+    );
+  }
+
+  if (!player) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: C.muted }}>Jugador no encontrado</Text>
+      </View>
+    );
+  }
+
+  // ── Data derivation ─────────────────────────────────────────────────────────
+  const age        = getAge(player.date_of_birth);
+  const mainRating = stats?.avgRating ?? 0;
+  const rColor     = ratingColor(mainRating);
+  const quickStats = stats ? getQuickStats(player.position, stats, player.market_value_eur) : [];
+  const keyStats   = stats && raw.length > 0 ? getKeyStats(player.position, stats, raw) : [];
+  const donuts     = stats && raw.length > 0 ? getDonutValues(player.position, stats, raw) : [];
+  const sections   = stats && raw.length > 0 ? getStatSections(player.position, stats, raw) : [];
+  const radarPts   = stats && raw.length > 0 ? getRadarPoints(player.position, stats, raw) : [];
+  const evolution  = getRatingEvolution(raw);
+  const bioRows    = getBioRows(player);
+
+  const maxW = isWide ? Math.min(width - 64, 1200) : width - 32;
+  const hPad = isWide ? 32 : 16;
+  const goToPlayers = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/');
+  };
 
   return (
-    <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
-      {/* Back button */}
-      <Pressable onPress={() => router.back()} className="px-4 py-3 flex-row items-center gap-2">
-        <Text className="text-green text-base">{'←'}</Text>
-        <Text className="text-zinc-400 text-sm">Volver</Text>
-      </Pressable>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: C.bg }}
+      contentContainerStyle={{ paddingHorizontal: hPad, paddingTop: 16, paddingBottom: 100 }}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ maxWidth: maxW, alignSelf: 'center', width: '100%', gap: 16 }}>
 
-      {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#64ffda" />
-        </View>
-      ) : !player ? (
-        <View className="flex-1 items-center justify-center">
-          <Text className="text-zinc-400">Jugador no encontrado</Text>
-        </View>
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 120 }}
+        {/* Back button */}
+        <Pressable
+          onPress={goToPlayers}
+          style={({ pressed }) => ({
+            flexDirection: 'row', alignItems: 'center', gap: 6,
+            alignSelf: 'flex-start',
+            backgroundColor: pressed ? C.card : C.surface,
+            borderWidth: 1, borderColor: C.border,
+            borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8,
+          })}
         >
-          {/* Hero */}
-          <View className="px-4 pb-4">
-            <View className="flex-row items-center gap-4">
-              <Image
-                source={{ uri: photoUrl }}
-                style={{ width: 80, height: 80, borderRadius: 40 }}
-                contentFit="cover"
-                placeholder={require('@/assets/images/react-logo.png')}
-              />
-              <View className="flex-1 gap-1.5">
-                <Text className="text-white text-xl font-bold leading-tight">
-                  {player.name}
-                </Text>
-                <View className="flex-row items-center gap-2">
-                  <PositionBadge position={player.position} size="md" />
-                  <Text className="text-zinc-400 text-sm">{player.nationality}</Text>
-                </View>
-                {player.current_team_id && (
-                  <Text className="text-zinc-400 text-sm">
-                    #{player.jersey_number ?? '—'}
-                  </Text>
-                )}
+          <ChevronLeft size={14} color={C.green} />
+          <Text style={{ color: C.secondary, fontSize: 13, fontWeight: '600' }}>Todos los jugadores</Text>
+        </Pressable>
+
+        {/* ── HERO ────────────────────────────────────────────────────────── */}
+        <Card>
+          <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 16, alignItems: isWide ? 'flex-start' : 'stretch' }}>
+
+            {/* Avatar */}
+            <View style={{ position: 'relative', alignSelf: isWide ? 'flex-start' : 'center' }}>
+              <View style={{
+                width: isWide ? 120 : 80,
+                height: isWide ? 120 : 80,
+                borderRadius: 16,
+                borderWidth: 2, borderColor: C.border,
+                overflow: 'hidden',
+                backgroundColor: C.card,
+              }}>
+                <Image source={{ uri: photoUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
               </View>
-              {stats?.avgRating ? (
-                <View className="bg-zinc-900 rounded-xl p-3 items-center">
-                  <Text className="text-green text-2xl font-bold">
-                    {stats.avgRating.toFixed(1)}
-                  </Text>
-                  <Text className="text-zinc-500 text-[10px] uppercase">Rating</Text>
-                </View>
-              ) : null}
             </View>
 
-            {stats?.avgRating ? (
-              <View className="mt-3">
-                <RatingBar value={stats.avgRating} maxValue={10} showLabel={false} />
+            {/* Info */}
+            <View style={{ flex: 1 }}>
+              {/* Position + age + foot + height */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+                <PositionBadge position={player.position} size="md" />
+                {age != null && <Text style={{ color: C.muted, fontSize: 13 }}>{age} años</Text>}
+                {player.preferred_foot ? <Text style={{ color: C.muted, fontSize: 13 }}>· {formatFoot(player.preferred_foot)}</Text> : null}
+                {player.height_cm ? <Text style={{ color: C.muted, fontSize: 13 }}>· {player.height_cm} cm</Text> : null}
               </View>
-            ) : null}
+
+              {/* Name */}
+              <Text style={{ color: C.primary, fontSize: isWide ? 28 : 20, fontWeight: '900', lineHeight: isWide ? 34 : 24, marginBottom: 8 }}>
+                {player.name}
+              </Text>
+
+              {/* Team + nationality */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 4 }}>
+                {teamLogoUrl && player.team_name && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Image source={{ uri: teamLogoUrl }} style={{ width: 16, height: 16 }} contentFit="contain" />
+                    <Text style={{ color: C.secondary, fontSize: 13 }}>{player.team_name}</Text>
+                  </View>
+                )}
+                {player.nationality && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <NationalityFlag nationality={player.nationality} width={22} radius={3} />
+                  </View>
+                )}
+              </View>
+            </View>
           </View>
 
-          {/* Stats summary */}
-          {stats && (
-            <View className="mx-4 bg-zinc-900 rounded-xl p-4 mb-4">
-              <Text className="text-zinc-400 text-xs uppercase tracking-wider mb-3">
-                Temporada actual
+          {/* Rating bar */}
+          {mainRating > 0 && (
+            <View style={{ marginTop: 16 }}>
+              <Text style={{ color: C.muted, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
+                Desempeño
               </Text>
-              <View className="flex-row justify-around">
-                {[
-                  { label: 'Goles', value: stats.goals },
-                  { label: 'Asistencias', value: stats.assists },
-                  { label: 'xG', value: stats.xG },
-                  { label: 'Partidos', value: stats.matches },
-                ].map((s) => (
-                  <View key={s.label} className="items-center">
-                    <Text className="text-white text-xl font-bold">{s.value}</Text>
-                    <Text className="text-zinc-500 text-[10px] uppercase">{s.label}</Text>
+              <RatingBar value={mainRating} maxValue={10} showLabel={false} showBadge />
+            </View>
+          )}
+
+          {/* Quick stats row */}
+          {quickStats.length > 0 && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 0, marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: C.border }}>
+              {mainRating > 0 && (
+                <View style={{ alignItems: 'center', marginRight: 20 }}>
+                  <Text style={{ color: rColor, fontSize: isWide ? 26 : 18, fontWeight: '900', lineHeight: isWide ? 30 : 22 }}>
+                    {mainRating.toFixed(1)}
+                  </Text>
+                  <Text style={{ color: C.muted, fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Rating
+                  </Text>
+                </View>
+              )}
+              {quickStats.map((q, i) => (
+                <View key={i} style={{ alignItems: 'center', marginRight: 20, marginBottom: 4 }}>
+                  <Text style={{ color: q.accent ?? C.primary, fontSize: isWide ? 22 : 15, fontWeight: '800', lineHeight: isWide ? 26 : 18 }}>
+                    {q.value}
+                  </Text>
+                  <Text style={{ color: C.muted, fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 }}>
+                    {q.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </Card>
+
+        {/* ── ROW 2: Bio + Key stats ───────────────────────────────────────── */}
+        <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 16 }}>
+
+          {/* Bio */}
+          <Card style={{ flex: 1 }}>
+            <SectionTitle title="Perfil del jugador" />
+            {bioRows.map((r, i) => (
+              <StatRow key={i} label={r.label} value={r.value} accent={r.accent} />
+            ))}
+          </Card>
+
+          {/* Key stats 2×2 */}
+          {keyStats.length > 0 && (
+            <Card style={{ flex: 1 }}>
+              <SectionTitle title="Stats clave" />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {keyStats.map((k, i) => (
+                  <View
+                    key={i}
+                    style={{
+                      width: '47%',
+                      backgroundColor: C.card,
+                      borderRadius: 12,
+                      borderWidth: 1, borderColor: C.border,
+                      padding: 12,
+                    }}
+                  >
+                    <Text style={{ color: k.accent, fontSize: 22, fontWeight: '900', lineHeight: 26 }}>
+                      {k.value}
+                    </Text>
+                    <Text style={{ color: C.muted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
+                      {k.label}
+                    </Text>
                   </View>
                 ))}
               </View>
-            </View>
+            </Card>
           )}
+        </View>
 
-          {/* Radar */}
-          {stats && (
-            <View className="mx-4 bg-zinc-900 rounded-xl p-4 mb-4 items-center">
-              <Text className="text-zinc-400 text-xs uppercase tracking-wider mb-3 self-start">
-                Perfil de rendimiento
+        {/* ── Rendimiento Técnico (donuts) ─────────────────────────────────── */}
+        {donuts.length > 0 && (
+          <Card>
+            <SectionTitle title="Rendimiento Técnico" />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 20, paddingVertical: 8 }}>
+              {donuts.map((d, i) => (
+                <DonutCircle key={i} value={d.value} label={d.label} color={d.color} size={isWide ? 110 : 88} />
+              ))}
+            </View>
+          </Card>
+        )}
+
+        {/* ── Radar + Evolución rating ─────────────────────────────────────── */}
+        <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 16 }}>
+          {radarPts.length > 0 && (
+            <Card style={{ flex: 1, alignItems: 'center' }}>
+              <SectionTitle title="Radar de rendimiento" />
+              <SkillRadar points={radarPts} size={Math.min(280, (width - 128) / (isWide ? 2 : 1))} />
+            </Card>
+          )}
+          {evolution.length > 0 && (
+            <Card style={{ flex: 1 }}>
+              <SectionTitle title="Evolución del rating" />
+              <Text style={{ color: C.muted, fontSize: 10, marginBottom: 8 }}>
+                Últimos {evolution.length} partidos
               </Text>
-              <SkillRadar stats={stats} />
-            </View>
+              <RatingEvolution data={evolution} />
+            </Card>
           )}
+        </View>
 
-          {/* Bio */}
-          <View className="mx-4 bg-zinc-900 rounded-xl px-4 pb-2 mb-4">
-            <Text className="text-zinc-400 text-xs uppercase tracking-wider py-3">
-              Perfil del jugador
-            </Text>
-            <StatRow label="Edad" value={getAge(player.date_of_birth) ?? 'N/D'} />
-            <StatRow label="Altura" value={player.height_cm ? `${player.height_cm} cm` : 'N/D'} />
-            <StatRow label="Pie preferido" value={player.preferred_foot || 'N/D'} />
-            <StatRow
-              label="Valor de mercado"
-              value={formatValue(player.market_value_eur)}
-              accent
-            />
-            <StatRow
-              label="Contrato hasta"
-              value={
-                player.contract_until
-                  ? new Date(player.contract_until).getFullYear().toString()
-                  : 'N/D'
-              }
-            />
-            <StatRow label="Disponibilidad" value={player.availability ?? 'N/D'} />
-          </View>
-
-          {/* Defensive stats */}
-          {stats && (
-            <View className="mx-4 bg-zinc-900 rounded-xl px-4 pb-2">
-              <Text className="text-zinc-400 text-xs uppercase tracking-wider py-3">
-                Estadisticas defensivas
+        {/* ── Estadísticas completas ───────────────────────────────────────── */}
+        {sections.length > 0 && (
+          <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ color: C.green, fontSize: 10, fontWeight: '900', letterSpacing: 2, textTransform: 'uppercase' }}>
+                Estadísticas completas
               </Text>
-              <StatRow label="Tackles" value={stats.tackles} />
-              <StatRow label="Intercepciones" value={stats.interceptions} />
+              <View style={{ backgroundColor: C.card, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: C.border }}>
+                <Text style={{ color: C.secondary, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                  {player.position || '—'}
+                </Text>
+              </View>
             </View>
-          )}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+            {isWide ? (
+              // 2-col on wide screens
+              <View style={{ flexDirection: 'row', gap: 24 }}>
+                <View style={{ flex: 1 }}>
+                  {sections.slice(0, Math.ceil(sections.length / 2)).map((s, i) => (
+                    <StatSectionCard key={i} section={s} />
+                  ))}
+                </View>
+                <View style={{ width: 1, backgroundColor: C.border }} />
+                <View style={{ flex: 1 }}>
+                  {sections.slice(Math.ceil(sections.length / 2)).map((s, i) => (
+                    <StatSectionCard key={i} section={s} />
+                  ))}
+                </View>
+              </View>
+            ) : (
+              sections.map((s, i) => <StatSectionCard key={i} section={s} />)
+            )}
+          </Card>
+        )}
+
+      </View>
+    </ScrollView>
   );
 }

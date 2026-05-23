@@ -1,5 +1,6 @@
 import { View, Text, TextInput, Pressable, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
+import { Feather } from '@expo/vector-icons';
 import type { Position } from '@/lib/bzzoiro/types';
 import { LEAGUES } from '@/lib/bzzoiro/endpoints';
 import { Select, type SelectOption } from '@/components/ui/select';
@@ -96,8 +97,12 @@ export function PlayerFilters({
     iconUrl: `https://sports.bzzoiro.com/img/team/${t.id}/`,
   }));
 
-  const teamSelect = teams.length > 0 ? (
+  const teamSelectDesktop = teams.length > 0 ? (
     <Select options={teamOptions} value={selectedTeam} onChange={onTeamChange} placeholder="Todos los equipos" />
+  ) : null;
+
+  const teamSelectMobile = teams.length > 0 ? (
+    <Select options={teamOptions} value={selectedTeam} onChange={onTeamChange} placeholder="Todos los equipos" triggerHeight={34} />
   ) : null;
 
   // ── Chip helpers ─────────────────────────────────────────────────────────
@@ -143,88 +148,125 @@ export function PlayerFilters({
     );
   }
 
+  // Shared input row used by both compact (mobile) and full (desktop) versions
+  const inputRow = (compact?: boolean) => (
+    <View
+      style={{
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#1C1C1C',
+        borderRadius: compact ? 8 : 999,
+        paddingHorizontal: compact ? 10 : 14,
+        paddingVertical: compact ? 6 : 9,
+        gap: 8,
+        borderWidth: 1, borderColor: '#3C3C3C',
+        height: compact ? 34 : undefined,
+      }}
+    >
+      <Feather name="search" size={13} color="#888" />
+      <TextInput
+        value={search}
+        onChangeText={onSearchChange}
+        placeholder="Nombre, club..."
+        placeholderTextColor="#888"
+        style={[
+          { flex: 1, color: '#F2F2F2', fontSize: compact ? 11 : 12, fontWeight: '500' },
+          Platform.OS === 'web' ? ({ outlineStyle: 'none', boxShadow: 'none' } as object) : undefined,
+        ]}
+        autoCorrect={false}
+        autoCapitalize="none"
+      />
+      {search.length > 0 && (
+        <Pressable onPress={() => onSearchChange('')} hitSlop={8}>
+          <Feather name="x" size={13} color="#888" />
+        </Pressable>
+      )}
+    </View>
+  );
+
   const searchInput = (width?: number) => (
-    <View style={{ gap: 8, width }}>
-      <Text style={{ color: '#F2F2F2', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 }}>
+    <View style={{ gap: 6, width }}>
+      <Text style={{ color: '#F2F2F2', fontSize: 10, fontWeight: '800', letterSpacing: 1.5 }}>
         BUSCAR JUGADORES
       </Text>
-      <View
-        style={{
-          flexDirection: 'row', alignItems: 'center',
-          backgroundColor: '#1C1C1C',
-          borderRadius: 999,
-          paddingHorizontal: 18, paddingVertical: 12,
-          gap: 12,
-          borderWidth: 1, borderColor: '#3C3C3C',
-        }}
-      >
-        <Text style={{ fontSize: 16, color: '#717171' }}>&#128269;</Text>
-        <TextInput
-          value={search}
-          onChangeText={onSearchChange}
-          placeholder="Nombre, club..."
-          placeholderTextColor="#888"
-          style={[
-            { flex: 1, color: '#F2F2F2', fontSize: 14, fontWeight: '500' },
-            Platform.OS === 'web' ? ({ outlineStyle: 'none', boxShadow: 'none' } as object) : undefined,
-          ]}
-          autoCorrect={false}
-          autoCapitalize="none"
-        />
-        {search.length > 0 && (
-          <Pressable onPress={() => onSearchChange('')}>
-            <Text style={{ color: '#888', fontSize: 14 }}>✕</Text>
-          </Pressable>
-        )}
-      </View>
+      {inputRow()}
     </View>
   );
 
   return (
-    <View style={{ gap: 14, paddingHorizontal: 16, paddingBottom: 12, zIndex: 50 }}>
+    <View style={{ gap: isWide ? 14 : 18, paddingHorizontal: 16, paddingBottom: 12, zIndex: 50 }}>
 
-      {/* ── Row 1: leagues + team ── */}
       {isWide ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, zIndex: 50 }}>
-          {leagueRow}
-          {teams.length > 0 && <View style={{ width: 1, height: 28, backgroundColor: '#2C2C2C' }} />}
-          <View style={{ width: 240 }}>{teamSelect}</View>
-        </View>
-      ) : (
-        <View style={{ zIndex: 50, gap: 8 }}>
-          {leagueRow}
-          {teamSelect}
-        </View>
-      )}
-
-      {/* ── Row 2: search (left) + position + sort (right) ── */}
-      {isWide ? (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-          {searchInput(280)}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', flex: 1, paddingBottom: 4 }}>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              {POSITIONS.map((p) => <PosPill key={p.key} p={p} />)}
-            </View>
-            <View style={{ width: 1, height: 16, backgroundColor: '#2C2C2C', marginHorizontal: 4 }} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                <Text style={{ color: '#717171', fontSize: 12 }}>↕</Text>
-                {SORT_OPTIONS.map((s) => <SortPill key={s.key} s={s} />)}
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      ) : (
+        // ───────── Desktop / wide ─────────────────────────────────────────────
         <>
-          {searchInput()}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
-              {POSITIONS.map((p) => <PosPill key={p.key} p={p} />)}
+          {/* Row 1: leagues + team select side-by-side */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              rowGap: 8,
+              columnGap: 12,
+              zIndex: 50,
+            }}
+          >
+            <View style={{ flexShrink: 1 }}>{leagueRow}</View>
+            {teams.length > 0 && (
+              <>
+                <View style={{ width: 1, height: 28, backgroundColor: '#2C2C2C' }} />
+                <View style={{ width: 180, flexShrink: 1, minWidth: 150, maxWidth: 200 }}>
+                  {teamSelectDesktop}
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Row 2: search + position + sort */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
+            {searchInput(280)}
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', flex: 1, paddingBottom: 4 }}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {POSITIONS.map((p) => <PosPill key={p.key} p={p} />)}
+              </View>
+              <View style={{ width: 1, height: 16, backgroundColor: '#2C2C2C', marginHorizontal: 4 }} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                  <Text style={{ color: '#717171', fontSize: 12 }}>↕</Text>
+                  {SORT_OPTIONS.map((s) => <SortPill key={s.key} s={s} />)}
+                </View>
+              </ScrollView>
             </View>
-            <View style={{ width: 1, height: 16, backgroundColor: '#2C2C2C', marginHorizontal: 4 }} />
+          </View>
+        </>
+      ) : (
+        // ───────── Mobile ─────────────────────────────────────────────────────
+        <>
+          {/* Leagues alone */}
+          <View style={{ zIndex: 1 }}>{leagueRow}</View>
+
+          {/* 2-col grid: searchbar (left) | team select (right) — same height */}
+          <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', zIndex: 50 }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              {inputRow(true)}
+            </View>
+            {teams.length > 0 && (
+              <View style={{ width: 140, flexShrink: 0 }}>
+                {teamSelectMobile}
+              </View>
+            )}
+          </View>
+
+          {/* Position pills */}
+          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+            {POSITIONS.map((p) => <PosPill key={p.key} p={p} />)}
+          </View>
+
+          {/* Sort row — separated with its own label */}
+          <View style={{ gap: 6, marginTop: 2 }}>
+            <Text style={{ color: '#717171', fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>
+              Ordenar por
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                <Text style={{ color: '#717171', fontSize: 12 }}>↕</Text>
                 {SORT_OPTIONS.map((s) => <SortPill key={s.key} s={s} />)}
               </View>
             </ScrollView>

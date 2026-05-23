@@ -17,6 +17,7 @@ interface SelectProps<V extends string | number> {
   allowClear?: boolean;
   width?: number | string;
   maxHeight?: number;
+  triggerHeight?: number;
 }
 
 // ─── Web portal dropdown (escapes any parent overflow / z-index) ──────────────
@@ -25,16 +26,24 @@ function WebPortalDropdown({
   anchorEl,
   onClose,
   children,
+  maxHeight,
 }: {
   anchorEl: HTMLElement | null;
   onClose: () => void;
-  children: ReactNode;
+  children: (effectiveMaxHeight: number) => ReactNode;
+  maxHeight: number;
 }) {
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [viewportH, setViewportH] = useState<number>(
+    typeof window !== 'undefined' ? window.innerHeight : 0,
+  );
 
   useEffect(() => {
     if (!anchorEl) return;
-    const update = () => setRect(anchorEl.getBoundingClientRect());
+    const update = () => {
+      setRect(anchorEl.getBoundingClientRect());
+      setViewportH(window.innerHeight);
+    };
     update();
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
@@ -58,9 +67,14 @@ function WebPortalDropdown({
 
   if (!rect) return null;
 
-  // Detect if there's enough room below; if not, open upwards
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const openUp = spaceBelow < 320 && rect.top > 320;
+  const SAFE_MARGIN = 12;
+  const spaceBelow = viewportH - rect.bottom - SAFE_MARGIN;
+  const spaceAbove = rect.top - SAFE_MARGIN;
+  // Open upwards only when there's clearly more room above
+  const openUp = spaceAbove > spaceBelow && spaceAbove > 160;
+  const available = Math.max(160, openUp ? spaceAbove : spaceBelow);
+  const effectiveMaxHeight = Math.min(maxHeight, available);
+
   const top = openUp ? rect.top + window.scrollY - 4 : rect.bottom + window.scrollY + 4;
 
   const { createPortal } = require('react-dom');
@@ -76,7 +90,7 @@ function WebPortalDropdown({
         transform: openUp ? 'translateY(-100%)' : undefined,
       }}
     >
-      {children}
+      {children(effectiveMaxHeight)}
     </div>,
     document.body,
   );
@@ -122,6 +136,7 @@ export function Select<V extends string | number>({
   allowClear = true,
   width = '100%',
   maxHeight = 320,
+  triggerHeight,
 }: SelectProps<V>) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<View>(null);
@@ -136,8 +151,13 @@ export function Select<V extends string | number>({
 
   const selected = options.find((o) => o.value === value);
 
-  const dropdownContent = (
-    <ScrollView style={{ maxHeight: maxHeight - 12 }} showsVerticalScrollIndicator>
+  const renderDropdownContent = (effectiveMaxHeight: number) => (
+    <ScrollView
+      style={{ maxHeight: effectiveMaxHeight - 12 }}
+      showsVerticalScrollIndicator
+      nestedScrollEnabled
+      keyboardShouldPersistTaps="handled"
+    >
       {allowClear && (
         <>
           <SelectRow
@@ -195,49 +215,58 @@ export function Select<V extends string | number>({
           backgroundColor: '#1C1C1C',
           borderWidth: 1,
           borderColor: open ? '#64ffda' : '#2C2C2C',
-          borderRadius: 10,
-          paddingHorizontal: 10, paddingVertical: 8,
-          gap: 8,
+          borderRadius: 8,
+          paddingHorizontal: 8,
+          paddingVertical: triggerHeight ? 0 : 6,
+          height: triggerHeight,
+          gap: 6,
         }}
       >
         {selected ? (
           <>
             {selected.icon ?? (
               selected.iconUrl
-                ? <Image source={{ uri: selected.iconUrl }} style={{ width: 18, height: 18 }} contentFit="contain" />
+                ? <Image source={{ uri: selected.iconUrl }} style={{ width: 16, height: 16 }} contentFit="contain" />
                 : null
             )}
-            <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+            <Text style={{ color: '#F2F2F2', fontSize: 11, fontWeight: '600', flex: 1 }} numberOfLines={1}>
               {selected.label}
             </Text>
           </>
         ) : (
-          <Text style={{ color: '#717171', fontSize: 12, fontWeight: '500', flex: 1 }}>{placeholder}</Text>
+          <Text style={{ color: '#717171', fontSize: 11, fontWeight: '500', flex: 1 }}>{placeholder}</Text>
         )}
-        <Text style={{ color: '#717171', fontSize: 11 }}>{open ? '▴' : '▾'}</Text>
+        <Text style={{ color: '#717171', fontSize: 10 }}>{open ? '▴' : '▾'}</Text>
       </Pressable>
 
       {/* Dropdown */}
       {open && (
         Platform.OS === 'web'
           ? (
-            <WebPortalDropdown anchorEl={nativeEl} onClose={() => setOpen(false)}>
-              <div style={{
-                backgroundColor: '#111111',
-                border: '1px solid #2C2C2C',
-                borderRadius: 12,
-                paddingTop: 6, paddingBottom: 6,
-                maxHeight,
-                overflow: 'hidden',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
-              }}>
-                {dropdownContent}
-              </div>
+            <WebPortalDropdown
+              anchorEl={nativeEl}
+              onClose={() => setOpen(false)}
+              maxHeight={maxHeight}
+            >
+              {(effectiveMaxHeight) => (
+                <div style={{
+                  backgroundColor: '#111111',
+                  border: '1px solid #2C2C2C',
+                  borderRadius: 12,
+                  paddingTop: 6, paddingBottom: 6,
+                  maxHeight: effectiveMaxHeight,
+                  overflow: 'hidden',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
+                  WebkitOverflowScrolling: 'touch',
+                }}>
+                  {renderDropdownContent(effectiveMaxHeight)}
+                </div>
+              )}
             </WebPortalDropdown>
           )
           : (
             <NativeDropdown maxHeight={maxHeight}>
-              {dropdownContent}
+              {renderDropdownContent(maxHeight)}
             </NativeDropdown>
           )
       )}

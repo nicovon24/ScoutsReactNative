@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
 import { View, FlatList, ActivityIndicator, Text, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -20,6 +19,12 @@ import type { AggregatedStats, Player, Position } from '@/lib/bzzoiro/types';
 
 const PAGE_SIZE = 20;
 const SKELETON_COUNT = 12;
+const GRID_PAD = 12;
+const GRID_GAP = 12;
+
+type FillerItem = { __filler: true; id: string };
+type GridCell = EnrichedPlayer | FillerItem;
+type GridRow = GridCell[];
 
 function ErrorState({ message }: { message: string }) {
   return (
@@ -152,8 +157,6 @@ export default function HomeScreen() {
     const dir = sortDir === 'desc' ? -1 : 1;
 
     result = [...result].sort((a, b) => {
-      if (sortBy === 'name') return dir * a.name.localeCompare(b.name);
-
       const sa = getStats(a.id);
       const sb = getStats(b.id);
 
@@ -181,6 +184,40 @@ export default function HomeScreen() {
   );
 
   const hasMore = visiblePlayers.length < filteredAndSorted.length;
+
+  /** Pad last row + split into explicit rows so every card keeps equal width */
+  const gridRows = useMemo<GridRow[] | null>(() => {
+    if (!compact || numColumns <= 1 || visiblePlayers.length === 0) return null;
+
+    const remainder = visiblePlayers.length % numColumns;
+    const fillers: FillerItem[] =
+      remainder === 0
+        ? []
+        : Array.from({ length: numColumns - remainder }, (_, i) => ({
+            __filler: true as const,
+            id: `filler-${i}`,
+          }));
+
+    const cells: GridCell[] = [...visiblePlayers, ...fillers];
+    const rows: GridRow[] = [];
+    for (let i = 0; i < cells.length; i += numColumns) {
+      rows.push(cells.slice(i, i + numColumns));
+    }
+    return rows;
+  }, [visiblePlayers, compact, numColumns]);
+
+  function renderGridCell(cell: GridCell, index: number) {
+    if ('__filler' in cell) {
+      return <View key={cell.id} style={{ flex: 1, minWidth: 0 }} />;
+    }
+    return (
+      <View key={String(cell.id)} style={{ flex: 1, minWidth: 0 }}>
+        <AnimatedCard index={index}>
+          <PlayerCard player={cell} compact />
+        </AnimatedCard>
+      </View>
+    );
+  }
   const seasonName = standings?.season?.name;
 
   const header = (
@@ -212,27 +249,27 @@ export default function HomeScreen() {
   // Only show full skeleton while standings haven't arrived (no players yet)
   if (showFullSkeleton) {
     return (
-      <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
+      <View className="flex-1 bg-zinc-950">
         <ScrollView showsVerticalScrollIndicator={false}>
           {header}
           <SkeletonGrid count={SKELETON_COUNT} numColumns={numColumns} />
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (error && allPlayers.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
+      <View className="flex-1 bg-zinc-950">
         {header}
         <ErrorState message={String(error)} />
-      </SafeAreaView>
+      </View>
     );
   }
 
   if (viewMode === 'table') {
     return (
-      <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
+      <View className="flex-1 bg-zinc-950">
         {header}
         {filteredAndSorted.length === 0 ? (
           <EmptyState />
@@ -246,23 +283,66 @@ export default function HomeScreen() {
             hasMore={hasMore}
           />
         )}
-      </SafeAreaView>
+      </View>
     );
   }
 
+  // Multi-column grid: explicit rows (reliable equal widths on web + native)
+  if (gridRows) {
+    return (
+      <View className="flex-1 bg-zinc-950">
+        <FlatList<GridRow>
+          key={`${selectedLeague}-${numColumns}`}
+          data={gridRows}
+          keyExtractor={(_, i) => `row-${i}`}
+          renderItem={({ item: row, index: rowIndex }) => (
+            <View
+              style={{
+                flexDirection: 'row',
+                paddingHorizontal: GRID_PAD,
+                gap: GRID_GAP,
+                marginBottom: GRID_GAP,
+              }}
+            >
+              {row.map((cell, colIndex) =>
+                renderGridCell(cell, rowIndex * numColumns + colIndex),
+              )}
+            </View>
+          )}
+          ListHeaderComponent={header}
+          ListEmptyComponent={squadsLoading ? null : <EmptyState />}
+          ListFooterComponent={
+            hasMore ? (
+              <View className="py-4 items-center">
+                <ActivityIndicator size="small" color="#64ffda" />
+                <Text className="text-zinc-500 text-xs mt-1">Cargando más…</Text>
+              </View>
+            ) : null
+          }
+          onEndReached={() => hasMore && setPage((p) => p + 1)}
+          onEndReachedThreshold={0.4}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          initialNumToRender={Math.ceil(PAGE_SIZE / numColumns)}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+        />
+      </View>
+    );
+  }
+
+  // Single column (mobile)
   return (
-    <SafeAreaView className="flex-1 bg-zinc-950" edges={['top']}>
+    <View className="flex-1 bg-zinc-950">
       <FlatList<EnrichedPlayer>
         key={`${selectedLeague}-${numColumns}`}
         data={visiblePlayers}
         keyExtractor={(item) => String(item.id)}
-        numColumns={numColumns}
         renderItem={({ item, index }) => (
           <AnimatedCard index={index}>
-            <PlayerCard player={item} compact={compact} />
+            <PlayerCard player={item} compact={false} />
           </AnimatedCard>
         )}
-        columnWrapperStyle={compact ? { paddingHorizontal: 10 } : undefined}
         ListHeaderComponent={header}
         ListEmptyComponent={squadsLoading ? null : <EmptyState />}
         ListFooterComponent={
@@ -282,6 +362,6 @@ export default function HomeScreen() {
         windowSize={7}
         removeClippedSubviews
       />
-    </SafeAreaView>
+    </View>
   );
 }

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "proyecto-1",
+    "name": "ScoutPanel",
     "slug": "proyecto-1",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,7 +21,9 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.svg",
+      "name": "ScoutPanel",
+      "shortName": "ScoutPanel"
     },
     "plugins": [
       "expo-router",
