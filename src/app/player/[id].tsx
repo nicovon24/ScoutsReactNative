@@ -24,6 +24,12 @@ import {
   getBioRows,
   type StatSection,
 } from '@/lib/player-detail';
+import { getLeaguePlayerIds } from '@/lib/static-params';
+
+export async function generateStaticParams(): Promise<Record<string, string>[]> {
+  const ids = await getLeaguePlayerIds();
+  return ids.map((id) => ({ id: String(id) }));
+}
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
