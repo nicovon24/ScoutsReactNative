@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { BarChart2, X } from 'lucide-react-native';
 import { useCompareStore } from '@/store/compare-store';
 
@@ -17,6 +17,10 @@ const C = {
 export function CompareBar() {
   const { slots, removeFromCompare, clearCompare } = useCompareStore();
   const router = useRouter();
+  const pathname = usePathname();
+  const onComparePage = pathname === '/compare' || pathname.startsWith('/compare');
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const slideAnim = useRef(new Animated.Value(100)).current;
 
   useEffect(() => {
@@ -35,8 +39,8 @@ export function CompareBar() {
       style={{
         position: 'absolute',
         bottom: 24,
-        left: 0,
-        right: 0,
+        left: 12,
+        right: 12,
         alignItems: 'center',
         transform: [{ translateY: slideAnim }],
         zIndex: 999,
@@ -47,13 +51,14 @@ export function CompareBar() {
         style={{
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 12,
+          gap: isMobile ? 8 : 12,
           backgroundColor: C.surface,
           borderWidth: 1,
           borderColor: C.border,
           borderRadius: 16,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
+          paddingHorizontal: isMobile ? 10 : 16,
+          paddingVertical: isMobile ? 10 : 12,
+          maxWidth: isMobile ? width - 24 : undefined,
           shadowColor: '#000',
           shadowOpacity: 0.4,
           shadowRadius: 24,
@@ -65,7 +70,7 @@ export function CompareBar() {
           const photoUrl = `https://sports.bzzoiro.com/img/player/${p.id}/`;
           const color = i === 0 ? '#64ffda' : '#a78bfa';
           return (
-            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: isMobile ? 5 : 8 }}>
               {i > 0 && (
                 <Text style={{ color: C.muted, fontSize: 11, fontWeight: '900', letterSpacing: 1 }}>VS</Text>
               )}
@@ -74,7 +79,7 @@ export function CompareBar() {
                   <Image source={{ uri: photoUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
                 </View>
               </View>
-              <Text style={{ color: C.primary, fontSize: 13, fontWeight: '700', maxWidth: 90 }} numberOfLines={1}>
+              <Text style={{ color: C.primary, fontSize: isMobile ? 11 : 13, fontWeight: '700', maxWidth: isMobile ? 56 : 90 }} numberOfLines={1}>
                 {p.name.split(' ')[0]}
               </Text>
               <Pressable
@@ -96,18 +101,26 @@ export function CompareBar() {
           <Text style={{ color: C.muted, fontSize: 11, fontWeight: '600' }}>+ 1 jugador más</Text>
         )}
 
-        {/* Compare button */}
-        {slots.length === 2 && (
+        {/* Compare button — hidden when already on /compare */}
+        {slots.length === 2 && !onComparePage && (
           <Pressable
             onPress={() => router.push(`/compare?ids=${slots.map((p) => p.id).join(',')}`)}
-            style={({ pressed }) => ({
-              flexDirection: 'row', alignItems: 'center', gap: 6,
-              backgroundColor: pressed ? '#4dd9b8' : C.green,
-              borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8,
-            })}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              backgroundColor: '#64ffda',
+              borderWidth: 1.5,
+              borderColor: '#64ffda',
+              borderRadius: 10,
+              paddingHorizontal: isMobile ? 12 : 14,
+              paddingVertical: isMobile ? 8 : 8,
+              minWidth: isMobile ? 90 : undefined,
+            }}
           >
-            <BarChart2 size={14} color="#000" />
-            <Text style={{ color: '#000', fontSize: 12, fontWeight: '900' }}>Comparar</Text>
+            <BarChart2 size={14} color="#000" strokeWidth={2.5} />
+            <Text style={{ color: '#000', fontSize: 12, fontWeight: '900', letterSpacing: 0.3 }}>Comparar</Text>
           </Pressable>
         )}
 

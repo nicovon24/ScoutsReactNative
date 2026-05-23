@@ -217,6 +217,8 @@ function SearchSlot({
 // ── Compare content (stats + radar) ──────────────────────────────────────────
 
 function CompareContent({ idA, idB }: { idA: number; idB: number }) {
+  const { width } = useWindowDimensions();
+  const isWide = width >= 768;
   const { data: playerA } = usePlayerDetail(idA);
   const { data: playerB } = usePlayerDetail(idB);
   const { data: statsA } = usePlayerStats(idA);
@@ -274,7 +276,7 @@ function CompareContent({ idA, idB }: { idA: number; idB: number }) {
   ];
 
   return (
-    <View style={{ gap: 16 }}>
+    <View style={{ gap: isWide ? 16 : 22 }}>
       {/* Bio comparison */}
       <View style={{ backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -373,7 +375,9 @@ export default function CompareScreen() {
   const idA = localA ?? baseIds[0] ?? null;
   const idB = localB ?? baseIds[1] ?? null;
   const bothReady = Boolean(idA && idB);
+  const isWide = width >= 768;
   const maxW = Math.min(width - 32, 900);
+  const sectionGap = isWide ? 16 : 22;
 
   return (
     <ScrollView
@@ -381,7 +385,7 @@ export default function CompareScreen() {
       contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}
       showsVerticalScrollIndicator={false}
     >
-      <View style={{ maxWidth: maxW, alignSelf: 'center', width: '100%', gap: 16 }}>
+      <View style={{ maxWidth: maxW, alignSelf: 'center', width: '100%', gap: sectionGap }}>
 
         {/* Header row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -415,8 +419,8 @@ export default function CompareScreen() {
         </View>
 
         {/* Title */}
-        <View>
-          <Text style={{ color: C.muted, fontSize: 10, fontWeight: '800', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 4 }}>
+        <View style={{ marginTop: isWide ? 0 : 4 }}>
+          <Text style={{ color: C.muted, fontSize: 10, fontWeight: '800', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
             Comparación de jugadores
           </Text>
           <Text style={{ color: C.primary, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 }}>
@@ -425,7 +429,7 @@ export default function CompareScreen() {
         </View>
 
         {/* Slot cards */}
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+        <View style={{ flexDirection: 'row', gap: isWide ? 12 : 16, alignItems: 'flex-start' }}>
           {idA
             ? <SlotCard playerId={idA} color={COMPARE_COLORS[0]} onRemove={() => { removeFromCompare(idA); setLocalA(null); }} />
             : <SearchSlot

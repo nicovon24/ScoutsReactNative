@@ -205,7 +205,7 @@ function SidebarBody({
       )}
 
       {/* Nav */}
-      <View style={{ flex: 1, gap: 14 }}>
+      <View style={{ flex: 1, gap: isDesktop ? 14 : 60 }}>
         {NAV_ITEMS.map((item) => {
           const active =
             pathname === item.href ||
