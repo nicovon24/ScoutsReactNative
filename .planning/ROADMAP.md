@@ -61,3 +61,11 @@
 **Goal**: Comparar dos jugadores lado a lado, animaciones de carga, mejoras de UX.
 
 **Requirements**: COMP-01 (selección de dos jugadores), COMP-02 (vista comparativa), COMP-03 (favoritos)
+
+---
+
+## Fase 5: Clubes (Pendiente)
+
+**Goal**: Sección "Clubes" en el sidebar con listado de los 20 equipos de la PL y pantalla de detalle de cada club con plantilla, partidos y alineación en cancha.
+
+**Requirements**: CLUB-01 (nav item en sidebar), CLUB-02 (pantalla lista de clubes con buscador), CLUB-03 (detalle club — plantilla agrupada por posición), CLUB-04 (detalle club — partidos / fixtures placeholder), CLUB-05 (detalle club — alineación titular en cancha SVG)
