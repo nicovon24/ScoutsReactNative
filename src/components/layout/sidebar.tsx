@@ -15,6 +15,7 @@ import {
   Home,
   LogOut,
   Menu,
+  Shield,
   X,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -32,6 +33,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: '/', icon: Home, label: 'Jugadores' },
   { href: '/compare', icon: BarChart2, label: 'Comparar' },
+  { href: '/clubs', icon: Shield, label: 'Clubes' },
 ];
 
 const COLOR_GREEN = '#64ffda';

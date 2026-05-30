@@ -11,11 +11,13 @@ import { PREMIER_LEAGUE_ID } from '@/lib/bzzoiro/endpoints';
 import { ScoutHeader, type ViewMode } from '@/components/scout/scout-header';
 import { PlayerCard } from '@/components/scout/player-card';
 import { PlayerFilters, type SortKey, type SortDir, type TeamOption } from '@/components/scout/player-filters';
+import { AdvancedFiltersModal, type AdvancedFiltersState } from '@/components/scout/advanced-filters-modal';
 import { PlayerTable } from '@/components/scout/player-table';
 import { useNumColumns } from '@/hooks/use-num-columns';
 import { SkeletonGrid } from '@/components/scout/skeleton-card';
 import { AnimatedCard } from '@/components/scout/animated-card';
 import type { AggregatedStats, Player, Position } from '@/lib/bzzoiro/types';
+import { getAge } from '@/lib/player-utils';
 
 const PAGE_SIZE = 20;
 const SKELETON_COUNT = 12;
@@ -69,6 +71,9 @@ export default function HomeScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null);
   const [selectedLeague, setSelectedLeague] = useState<number>(PREMIER_LEAGUE_ID);
+  const [advancedFiltersVisible, setAdvancedFiltersVisible] = useState(false);
+  const [minAge, setMinAge] = useState('');
+  const [maxAge, setMaxAge] = useState('');
 
   const queryClient = useQueryClient();
   const numColumns = useNumColumns();
@@ -144,6 +149,8 @@ export default function HomeScreen() {
 
     if (selectedTeam !== null) result = result.filter((p) => p.team_id === selectedTeam);
     if (position !== 'ALL') result = result.filter((p) => p.position === position);
+    if (minAge) result = result.filter((p) => parseInt(String(getAge(p.date_of_birth)), 10) >= parseInt(minAge, 10));
+    if (maxAge) result = result.filter((p) => parseInt(String(getAge(p.date_of_birth)), 10) <= parseInt(maxAge, 10));
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
@@ -176,7 +183,7 @@ export default function HomeScreen() {
     });
 
     return result;
-  }, [allPlayers, selectedTeam, position, search, sortBy, sortDir, getStats, getMarketValue]);
+  }, [allPlayers, selectedTeam, position, search, sortBy, sortDir, minAge, maxAge, getStats, getMarketValue]);
 
   const visiblePlayers = useMemo(
     () => filteredAndSorted.slice(0, page * PAGE_SIZE),
@@ -220,6 +227,24 @@ export default function HomeScreen() {
   }
   const seasonName = standings?.season?.name;
 
+  const advancedFiltersState: AdvancedFiltersState = { position, selectedTeam, sortBy, sortDir, minAge, maxAge };
+  const activeAdvancedCount = [
+    position !== 'ALL',
+    selectedTeam !== null,
+    minAge !== '',
+    maxAge !== '',
+  ].filter(Boolean).length;
+
+  function handleAdvancedApply(f: AdvancedFiltersState) {
+    setPosition(f.position);
+    setSelectedTeam(f.selectedTeam);
+    setSortBy(f.sortBy);
+    setSortDir(f.sortDir);
+    setMinAge(f.minAge);
+    setMaxAge(f.maxAge);
+    setPage(1);
+  }
+
   const header = (
     <>
       <ScoutHeader
@@ -241,8 +266,17 @@ export default function HomeScreen() {
         onTeamChange={handleTeamChange}
         selectedLeague={selectedLeague}
         onLeagueChange={handleLeagueChange}
+        onAdvancedFiltersPress={() => setAdvancedFiltersVisible(true)}
+        activeAdvancedCount={activeAdvancedCount}
       />
       {showProgressBar && <SquadProgress loaded={teamsLoaded} total={teamsTotal} />}
+      <AdvancedFiltersModal
+        visible={advancedFiltersVisible}
+        onClose={() => setAdvancedFiltersVisible(false)}
+        filters={advancedFiltersState}
+        teams={teams}
+        onApply={handleAdvancedApply}
+      />
     </>
   );
 

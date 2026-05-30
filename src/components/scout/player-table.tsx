@@ -11,21 +11,30 @@ import type { SortKey, SortDir } from './player-filters';
 interface Column {
   key: SortKey | 'player' | 'pos' | 'age' | 'club';
   label: string;
-  width: number;
+  flex: number;
+  minWidth: number;
   sortable: boolean;
   align?: 'left' | 'right' | 'center';
 }
 
 const COLUMNS: Column[] = [
-  { key: 'player',  label: 'Jugador', width: 180, sortable: false, align: 'left' },
-  { key: 'pos',     label: 'Pos',     width: 52,  sortable: false, align: 'center' },
-  { key: 'age',     label: 'Edad',    width: 52,  sortable: false, align: 'center' },
-  { key: 'club',    label: 'Club',    width: 110, sortable: false, align: 'left' },
-  { key: 'goals',   label: 'Goles',   width: 62,  sortable: true,  align: 'right' },
-  { key: 'assists', label: 'Asist',   width: 62,  sortable: true,  align: 'right' },
-  { key: 'xG',      label: 'xG',      width: 62,  sortable: true,  align: 'right' },
-  { key: 'rating',  label: 'Rating',  width: 68,  sortable: true,  align: 'right' },
+  { key: 'player',  label: 'Jugador', flex: 3,   minWidth: 220, sortable: false, align: 'left' },
+  { key: 'pos',     label: 'Pos',     flex: 0,   minWidth: 64,  sortable: false, align: 'center' },
+  { key: 'age',     label: 'Edad',    flex: 0,   minWidth: 64,  sortable: false, align: 'center' },
+  { key: 'club',    label: 'Club',    flex: 2.5, minWidth: 160, sortable: false, align: 'left' },
+  { key: 'goals',   label: 'Goles',   flex: 1,   minWidth: 80,  sortable: true,  align: 'right' },
+  { key: 'assists', label: 'Asist',   flex: 1,   minWidth: 80,  sortable: true,  align: 'right' },
+  { key: 'xG',      label: 'xG',      flex: 1,   minWidth: 80,  sortable: true,  align: 'right' },
+  { key: 'rating',  label: 'Rating',  flex: 1,   minWidth: 90,  sortable: true,  align: 'right' },
 ];
+
+const TOTAL_MIN_WIDTH = COLUMNS.reduce((s, c) => s + c.minWidth, 0);
+
+function cellStyle(col: Column) {
+  return col.flex === 0
+    ? { width: col.minWidth }
+    : { flex: col.flex, minWidth: col.minWidth };
+}
 
 function calcAge(dob: string | null): string {
   if (!dob) return '—';
@@ -47,7 +56,7 @@ function HeaderCell({ col, sortBy, sortDir, onSort }: HeaderCellProps) {
 
   return (
     <Pressable
-      style={{ width: col.width, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 10, justifyContent }}
+      style={[cellStyle(col), { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, justifyContent }]}
       onPress={col.sortable ? () => onSort(col.key as SortKey) : undefined}
       disabled={!col.sortable}
     >
@@ -80,7 +89,7 @@ function TableRow({ player, index, stats }: RowProps) {
       }}
     >
       {/* Jugador */}
-      <View style={{ width: COLUMNS[0].width, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingVertical: 8 }}>
+      <View style={[cellStyle(COLUMNS[0]), { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8 }]}>
         <Image
           source={{ uri: `https://sports.bzzoiro.com/img/player/${player.id}/` }}
           style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: '#222' }}
@@ -92,37 +101,37 @@ function TableRow({ player, index, stats }: RowProps) {
       </View>
 
       {/* Posicion */}
-      <View style={{ width: COLUMNS[1].width, alignItems: 'center', paddingHorizontal: 8 }}>
+      <View style={[cellStyle(COLUMNS[1]), { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 }]}>
         <PositionBadge position={player.position} size="sm" />
       </View>
 
       {/* Edad */}
-      <View style={{ width: COLUMNS[2].width, alignItems: 'center', paddingHorizontal: 8 }}>
+      <View style={[cellStyle(COLUMNS[2]), { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 }]}>
         <Text style={{ color: '#B8B8B8', fontSize: 12 }}>{calcAge(player.date_of_birth)}</Text>
       </View>
 
       {/* Club */}
-      <View style={{ width: COLUMNS[3].width, paddingHorizontal: 8 }}>
+      <View style={[cellStyle(COLUMNS[3]), { justifyContent: 'center', paddingHorizontal: 12 }]}>
         <Text style={{ color: '#B8B8B8', fontSize: 12 }} numberOfLines={1}>{player.team_name}</Text>
       </View>
 
       {/* Goles */}
-      <View style={{ width: COLUMNS[4].width, alignItems: 'flex-end', paddingHorizontal: 8 }}>
+      <View style={[cellStyle(COLUMNS[4]), { alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 12 }]}>
         <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600' }}>{stats?.goals ?? '—'}</Text>
       </View>
 
       {/* Asist */}
-      <View style={{ width: COLUMNS[5].width, alignItems: 'flex-end', paddingHorizontal: 8 }}>
+      <View style={[cellStyle(COLUMNS[5]), { alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 12 }]}>
         <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600' }}>{stats?.assists ?? '—'}</Text>
       </View>
 
       {/* xG */}
-      <View style={{ width: COLUMNS[6].width, alignItems: 'flex-end', paddingHorizontal: 8 }}>
+      <View style={[cellStyle(COLUMNS[6]), { alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 12 }]}>
         <Text style={{ color: '#F2F2F2', fontSize: 12, fontWeight: '600' }}>{stats?.xG ?? '—'}</Text>
       </View>
 
       {/* Rating */}
-      <View style={{ width: COLUMNS[7].width, alignItems: 'flex-end', paddingHorizontal: 12 }}>
+      <View style={[cellStyle(COLUMNS[7]), { alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 16 }]}>
         <Text style={{ fontSize: 12, fontWeight: '800', color: color ?? '#717171' }}>
           {rating ? rating.toFixed(1) : '—'}
         </Text>
@@ -142,11 +151,10 @@ interface PlayerTableProps {
 
 export function PlayerTable({ players, sortBy, sortDir, onSortChange, onEndReached, hasMore }: PlayerTableProps) {
   const queryClient = useQueryClient();
-  const totalWidth = COLUMNS.reduce((s, c) => s + c.width, 0);
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ flexGrow: 1 }}>
-      <View style={{ width: totalWidth, flex: 1 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
+      <View style={{ flex: 1, minWidth: TOTAL_MIN_WIDTH, width: '100%' }}>
         {/* Sticky header */}
         <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#3C3C3C', backgroundColor: '#131313' }}>
           {COLUMNS.map((col) => (

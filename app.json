@@ -8,8 +8,11 @@
     "scheme": "proyecto1",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.scoutpanel.app"
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.scoutpanel.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.scoutpanel.app",
@@ -37,7 +40,8 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

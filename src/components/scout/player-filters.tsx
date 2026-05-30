@@ -1,9 +1,10 @@
-import { View, Text, TextInput, Pressable, ScrollView, Platform, useWindowDimensions } from 'react-native';
-import { Image } from 'expo-image';
-import { Feather } from '@expo/vector-icons';
-import type { Position } from '@/lib/bzzoiro/types';
-import { LEAGUES } from '@/lib/bzzoiro/endpoints';
 import { Select, type SelectOption } from '@/components/ui/select';
+import { LEAGUES } from '@/lib/bzzoiro/endpoints';
+import type { Position } from '@/lib/bzzoiro/types';
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { SlidersHorizontal } from 'lucide-react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 const POSITIONS: Array<{ key: Position | 'ALL'; label: string }> = [
   { key: 'ALL', label: 'Todos' },
@@ -41,6 +42,8 @@ interface PlayerFiltersProps {
   onTeamChange: (id: number | null) => void;
   selectedLeague: number;
   onLeagueChange: (id: number) => void;
+  onAdvancedFiltersPress: () => void;
+  activeAdvancedCount: number;
 }
 
 export function PlayerFilters({
@@ -49,18 +52,19 @@ export function PlayerFilters({
   sortBy, sortDir, onSortChange,
   teams = [], selectedTeam, onTeamChange,
   selectedLeague, onLeagueChange,
+  onAdvancedFiltersPress, activeAdvancedCount,
 }: PlayerFiltersProps) {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
   // ── League pills ─────────────────────────────────────────────────────────
   const leagueRow = (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 2, alignItems: 'center' }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: isWide ? 6 : 10, paddingVertical: 2, alignItems: 'center' }}>
       {LEAGUES.map((league) => {
         const active = selectedLeague === league.id;
         // Bundesliga (id 5) needs a red background for its white logo to show
         const bg = league.id === 5 ? '#d20015' : '#FFFFFF';
-        const size = active ? 40 : 30;
+        const size = isWide ? (active ? 28 : 22) : (active ? 40 : 30);
         return (
           <Pressable
             key={league.id}
@@ -101,10 +105,6 @@ export function PlayerFilters({
     <Select options={teamOptions} value={selectedTeam} onChange={onTeamChange} placeholder="Todos los equipos" />
   ) : null;
 
-  const teamSelectMobile = teams.length > 0 ? (
-    <Select options={teamOptions} value={selectedTeam} onChange={onTeamChange} placeholder="Todos los equipos" triggerHeight={34} />
-  ) : null;
-
   // ── Chip helpers ─────────────────────────────────────────────────────────
   function PosPill({ p }: { p: typeof POSITIONS[number] }) {
     const active = position === p.key;
@@ -112,15 +112,15 @@ export function PlayerFilters({
       <Pressable
         onPress={() => onPositionChange(p.key)}
         style={{
-          paddingHorizontal: isWide ? 10 : 12,
-          paddingVertical: isWide ? 6 : 6,
-          borderRadius: 8,
+          paddingHorizontal: isWide ? 8 : 12,
+          paddingVertical: isWide ? 4 : 6,
+          borderRadius: 6,
           borderWidth: 1,
           borderColor: active ? '#64ffda' : '#2C2C2C',
           backgroundColor: active ? '#64ffda' : '#161616',
         }}
       >
-        <Text style={{ fontSize: 12, fontWeight: '700', color: active ? '#000' : '#B8B8B8' }}>
+        <Text style={{ fontSize: isWide ? 11 : 12, fontWeight: '700', color: active ? '#000' : '#B8B8B8' }}>
           {p.label}
         </Text>
       </Pressable>
@@ -134,16 +134,48 @@ export function PlayerFilters({
       <Pressable
         onPress={() => onSortChange(s.key)}
         style={{
-          paddingHorizontal: 10, paddingVertical: 5,
+          paddingHorizontal: isWide ? 8 : 10,
+          paddingVertical: isWide ? 3 : 5,
           borderRadius: 20,
           borderWidth: 1,
           borderColor: active ? '#64ffda' : '#2C2C2C',
           backgroundColor: active ? 'rgba(100,255,218,0.10)' : 'transparent',
         }}
       >
-        <Text style={{ fontSize: 12, fontWeight: active ? '700' : '400', color: active ? '#64ffda' : '#717171' }}>
+        <Text style={{ fontSize: isWide ? 11 : 12, fontWeight: active ? '700' : '400', color: active ? '#64ffda' : '#717171' }}>
           {s.label}{arrow}
         </Text>
+      </Pressable>
+    );
+  }
+
+  // ── Advanced filters button ──────────────────────────────────────────────
+  function AdvancedButton({ count, onPress, compact: isCompact }: { count: number; onPress: () => void; compact: boolean }) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: isCompact ? 12 : 14,
+          paddingVertical: isCompact ? 7 : 8,
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: count > 0 ? '#64ffda' : '#2C2C2C',
+          backgroundColor: count > 0 ? 'rgba(100,255,218,0.08)' : pressed ? '#1C1C1C' : 'transparent',
+          height: isCompact ? 34 : undefined,
+        })}
+      >
+        <SlidersHorizontal size={14} color={count > 0 ? '#64ffda' : '#B8B8B8'} />
+        <Text style={{ fontSize: 12, fontWeight: '700', color: count > 0 ? '#64ffda' : '#B8B8B8' }}>
+          Filtros
+        </Text>
+        {count > 0 && (
+          <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#64ffda', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 9, fontWeight: '900', color: '#000' }}>{count}</Text>
+          </View>
+        )}
       </Pressable>
     );
   }
@@ -155,9 +187,9 @@ export function PlayerFilters({
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: '#1C1C1C',
         borderRadius: compact ? 8 : 999,
-        paddingHorizontal: compact ? 10 : 14,
-        paddingVertical: compact ? 6 : 9,
-        gap: 8,
+        paddingHorizontal: compact ? 10 : isWide ? 10 : 14,
+        paddingVertical: compact ? 6 : isWide ? 5 : 9,
+        gap: 6,
         borderWidth: 1, borderColor: '#3C3C3C',
         height: compact ? 34 : undefined,
       }}
@@ -184,16 +216,16 @@ export function PlayerFilters({
   );
 
   const searchInput = (width?: number) => (
-    <View style={{ gap: 6, width }}>
-      <Text style={{ color: '#F2F2F2', fontSize: 10, fontWeight: '800', letterSpacing: 1.5 }}>
-        BUSCAR JUGADORES
+    <View style={{ gap: 4, width }}>
+      <Text style={{ color: '#717171', fontSize: 9, fontWeight: '800', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+        Buscar
       </Text>
       {inputRow()}
     </View>
   );
 
   return (
-    <View style={{ gap: isWide ? 14 : 18, paddingHorizontal: 16, paddingBottom: 12, zIndex: 50 }}>
+    <View style={{ gap: isWide ? 8 : 18, paddingHorizontal: 16, paddingBottom: isWide ? 8 : 12, zIndex: 50 }}>
 
       {isWide ? (
         // ───────── Desktop / wide ─────────────────────────────────────────────
@@ -204,37 +236,29 @@ export function PlayerFilters({
               flexDirection: 'row',
               alignItems: 'center',
               flexWrap: 'wrap',
-              rowGap: 8,
-              columnGap: 12,
+              rowGap: 6,
+              columnGap: 10,
               zIndex: 50,
             }}
           >
             <View style={{ flexShrink: 1 }}>{leagueRow}</View>
             {teams.length > 0 && (
               <>
-                <View style={{ width: 1, height: 28, backgroundColor: '#2C2C2C' }} />
-                <View style={{ width: 180, flexShrink: 1, minWidth: 150, maxWidth: 200 }}>
+                <View style={{ width: 1, height: 20, backgroundColor: '#2C2C2C' }} />
+                <View style={{ width: 160, flexShrink: 1, minWidth: 130, maxWidth: 180 }}>
                   {teamSelectDesktop}
                 </View>
               </>
             )}
           </View>
 
-          {/* Row 2: search + position + sort */}
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-            {searchInput(280)}
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap', flex: 1, paddingBottom: 4 }}>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                {POSITIONS.map((p) => <PosPill key={p.key} p={p} />)}
-              </View>
-              <View style={{ width: 1, height: 16, backgroundColor: '#2C2C2C', marginHorizontal: 4 }} />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                  <Text style={{ color: '#717171', fontSize: 12 }}>↕</Text>
-                  {SORT_OPTIONS.map((s) => <SortPill key={s.key} s={s} />)}
-                </View>
-              </ScrollView>
+          {/* Row 2: search + position + advanced filters */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {searchInput(220)}
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+              {POSITIONS.map((p) => <PosPill key={p.key} p={p} />)}
             </View>
+            <AdvancedButton count={activeAdvancedCount} onPress={onAdvancedFiltersPress} compact={false} />
           </View>
         </>
       ) : (
@@ -243,16 +267,12 @@ export function PlayerFilters({
           {/* Leagues alone */}
           <View style={{ zIndex: 1 }}>{leagueRow}</View>
 
-          {/* 2-col grid: searchbar (left) | team select (right) — same height */}
+          {/* searchbar + advanced filters button */}
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', zIndex: 50 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
               {inputRow(true)}
             </View>
-            {teams.length > 0 && (
-              <View style={{ width: 140, flexShrink: 0 }}>
-                {teamSelectMobile}
-              </View>
-            )}
+            <AdvancedButton count={activeAdvancedCount} onPress={onAdvancedFiltersPress} compact />
           </View>
 
           {/* Position pills */}
@@ -260,7 +280,7 @@ export function PlayerFilters({
             {POSITIONS.map((p) => <PosPill key={p.key} p={p} />)}
           </View>
 
-          {/* Sort row — separated with its own label */}
+          {/* Sort row */}
           <View style={{ gap: 6, marginTop: 2 }}>
             <Text style={{ color: '#717171', fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>
               Ordenar por
